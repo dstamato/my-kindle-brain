@@ -18,7 +18,7 @@ Un slider te deja mezclar ambos modos en tiempo real: desde "solo keywords" hast
 ## Cómo usarla
 
 ### Primera vez
-1. Abrí el archivo `kindle_hibrido_3.html` en tu browser (Chrome o Edge recomendado)
+1. Abrí el archivo `kindle_hibrido.html` en tu browser (Chrome o Edge recomendado)
 2. Conectá tu Kindle a la computadora y encontrá el archivo `My_Clippings.txt` (está en la carpeta `documents/` del dispositivo)
 3. Arrastrá el archivo al área de carga, o hacé click en "Seleccionar archivo"
 4. La app va a:
@@ -161,6 +161,23 @@ Al cargar el índice, los arrays se restauran como `Float32Array` para las opera
 - El procesamiento inicial puede tardar 1-5 minutos con bibliotecas muy grandes (>5.000 subrayados)
 - El modelo de embeddings (`all-MiniLM-L6-v2`) fue entrenado principalmente en inglés; funciona bien con español pero puede tener menor precisión semántica que con textos en inglés
 - El caché del modelo vive en el browser: si limpias el caché, se re-descarga la próxima vez
+
+---
+
+
+## Changelog
+
+### v3 — Mayo 2026
+- **Vista Biblioteca** — nueva pestaña "📚 Biblioteca" que muestra todos tus libros organizados por categorías temáticas (IA, Economía, Neurociencia, Creatividad, etc.) con color e iconografía por tema. Incluye grid de libros con título, autor y cantidad de subrayados; categorías colapsables; buscador inline por libro; y paginación de subrayados ("Ver más").
+- **Navegación por tabs** — barra de tabs en la parte superior para alternar entre "🔍 Búsqueda" y "📚 Biblioteca" sin recargar ni reprocesar.
+- `renderLibrary()` se invoca automáticamente al terminar de cargar el archivo o el índice.
+
+### v2 — Mayo 2026
+- Búsqueda híbrida semántica + keywords con slider ajustable
+- Pipeline completo: parseo → filtrado → embeddings → búsqueda
+- Sistema de caché con `.kindle-index.json` (guardar y recargar sin reprocesar)
+- Resultados agrupados por libro con score badges (`sem`, `kw`, `↔`)
+- Filtro por libro y paginación
 
 ---
 
