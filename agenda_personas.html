@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Personas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink:     #0a0a0a;
+    --ink-2:   #333333;
+    --ink-3:   #888888;
+    --paper:   #ffffff;
+    --paper-2: #f5f5f5;
+    --paper-3: #e2e2e2;
+    --line:    rgba(0,0,0,0.08);
+    --accent:  #8B5E3C;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper-2); color: var(--ink); min-height: 100vh; }
+
+  /* ── SETUP SCREEN ── */
+  #screen-setup { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .setup-card { background: var(--paper); border: 1px solid var(--paper-3); border-radius: 6px; padding: 2.5rem 2.8rem; max-width: 520px; width: 100%; }
+  .setup-logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--ink); margin-bottom: 0.3rem; }
+  .setup-sub { font-size: 0.82rem; color: var(--ink-3); margin-bottom: 2rem; }
+  .setup-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 0.4rem; display: block; }
+  .setup-input { width: 100%; border: 1px solid var(--paper-3); border-radius: 4px; padding: 0.55rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--ink); background: var(--paper-2); outline: none; transition: border-color 0.2s; margin-bottom: 1.2rem; }
+  .setup-input:focus { border-color: var(--ink); background: var(--paper); }
+  .setup-model-row { display: flex; gap: 0.5rem; margin-bottom: 1.4rem; }
+  .model-btn { flex: 1; padding: 0.45rem; border: 1px solid var(--paper-3); border-radius: 4px; background: none; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--ink-3); cursor: pointer; transition: all 0.15s; text-align: center; }
+  .model-btn.active { border-color: var(--ink); color: var(--ink); font-weight: 600; background: var(--paper-2); }
+  .drop-zone { border: 2px dashed var(--paper-3); border-radius: 6px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1.4rem; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--ink-3); background: var(--paper-2); }
+  .drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.3; }
+  .drop-zone-text { font-size: 0.82rem; color: var(--ink-3); }
+  .drop-zone-file { font-size: 0.78rem; color: var(--accent); font-weight: 500; margin-top: 0.3rem; }
+  .btn-primary { width: 100%; padding: 0.7rem; background: var(--ink); color: var(--paper); border: none; border-radius: 4px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .setup-hint { font-size: 0.72rem; color: var(--ink-3); margin-top: 1rem; line-height: 1.5; }
+  .setup-hint a { color: var(--ink-3); }
+
+  /* ── PROCESSING SCREEN ── */
+  #screen-processing { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .proc-card { background: var(--paper); border: 1px solid var(--paper-3); border-radius: 6px; padding: 2.5rem 2.8rem; max-width: 480px; width: 100%; text-align: center; }
+  .proc-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; margin-bottom: 0.5rem; }
+  .proc-subtitle { font-size: 0.82rem; color: var(--ink-3); margin-bottom: 1.8rem; }
+  .progress-bar-wrap { background: var(--paper-2); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 0.8rem; }
+  .progress-bar { height: 100%; background: var(--ink); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+  .proc-status { font-size: 0.78rem; color: var(--ink-3); min-height: 1.2em; }
+  .proc-found { font-size: 0.82rem; color: var(--accent); font-weight: 500; margin-top: 0.5rem; }
+  .proc-cancel { margin-top: 1.5rem; background: none; border: 1px solid var(--paper-3); border-radius: 4px; padding: 0.4rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--ink-3); cursor: pointer; }
+  .proc-error { font-size: 0.72rem; color: #c0392b; margin-top: 0.5rem; }
+  .proc-debug { margin-top: 1rem; background: var(--paper-2); border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.65rem; color: var(--ink-3); font-family: monospace; text-align: left; max-height: 80px; overflow: auto; word-break: break-all; display: none; }
+
+  /* ── RESULTS SCREEN ── */
+  #screen-results { display: none; min-height: 100vh; }
+  .results-header { background: var(--paper); border-bottom: 1px solid var(--line); padding: 1rem 2rem; display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; position: sticky; top: 0; z-index: 10; }
+  .results-logo { font-family: 'Playfair Display', serif; font-size: 1.05rem; color: var(--ink); white-space: nowrap; }
+  .results-count { font-size: 0.75rem; color: var(--ink-3); white-space: nowrap; }
+  #search-people { flex: 1; min-width: 180px; border: 1px solid var(--paper-3); border-radius: 4px; padding: 0.42rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.83rem; color: var(--ink); background: var(--paper-2); outline: none; transition: border-color 0.2s; }
+  #search-people:focus { border-color: var(--ink); background: var(--paper); }
+  .filter-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .pill { padding: 0.25rem 0.65rem; border: 1px solid var(--paper-3); border-radius: 99px; font-size: 0.7rem; color: var(--ink-3); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .pill.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn-restart { margin-left: auto; background: none; border: 1px solid var(--paper-3); border-radius: 4px; padding: 0.35rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.73rem; color: var(--ink-3); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .btn-restart:hover { border-color: var(--ink); color: var(--ink); }
+  .results-body { max-width: 1100px; margin: 0 auto; padding: 1.8rem 2rem 4rem; }
+  .sort-bar { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; font-size: 0.72rem; color: var(--ink-3); }
+  .sort-btn { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.72rem; color: var(--ink-3); cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 3px; }
+  .sort-btn.active { color: var(--ink); font-weight: 600; background: var(--paper-3); }
+  .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+  .person-card { background: var(--paper); border: 1px solid var(--paper-3); border-radius: 6px; padding: 1.2rem 1.4rem; transition: border-color 0.15s; }
+  .person-card:hover { border-color: var(--ink-3); }
+  .person-name { font-size: 1rem; font-weight: 600; color: var(--ink); margin-bottom: 0.25rem; line-height: 1.2; }
+  .person-role { font-size: 0.8rem; color: var(--ink-2); margin-bottom: 0.2rem; line-height: 1.35; }
+  .person-company { font-size: 0.73rem; color: var(--accent); font-weight: 500; margin-bottom: 0.8rem; }
+  .person-mentions { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.9rem; }
+  .mention-count { font-size: 0.65rem; background: var(--paper-2); border-radius: 99px; padding: 2px 8px; color: var(--ink-3); }
+  .mention-books { font-size: 0.65rem; color: var(--ink-3); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .person-quotes { border-top: 1px solid var(--line); padding-top: 0.8rem; display: flex; flex-direction: column; gap: 0.65rem; }
+  .quote-item { font-size: 0.78rem; color: var(--ink-2); line-height: 1.5; }
+  .quote-text { font-style: italic; margin-bottom: 0.2rem; }
+  .quote-source { font-size: 0.68rem; color: var(--ink-3); }
+  .toggle-quotes { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--ink-3); cursor: pointer; padding: 0; margin-top: 0.3rem; text-decoration: underline; }
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--ink-3); }
+  .empty-state p { font-size: 0.9rem; }
+  .btn-export { background: none; border: 1px solid var(--paper-3); border-radius: 4px; padding: 0.35rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.73rem; color: var(--ink-3); cursor: pointer; }
+  .btn-export:hover { border-color: var(--ink); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ── SETUP ── -->
+<div id="screen-setup">
+  <div class="setup-card">
+    <div class="setup-logo">Agenda de Personas</div>
+    <div class="setup-sub">Extrae personas identificables de tus subrayados usando Claude AI</div>
+
+    <label class="setup-label">API Key de Anthropic</label>
+    <input class="setup-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+
+    <label class="setup-label">Modelo</label>
+    <div class="setup-model-row">
+      <button class="model-btn active" data-model="claude-haiku-4-5-20251001">Haiku 4.5 — rápido y barato</button>
+      <button class="model-btn" data-model="claude-sonnet-4-6">Sonnet 4.6 — más preciso</button>
+    </div>
+
+    <label class="setup-label">Archivo de subrayados</label>
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-zone-icon">📂</div>
+      <div class="drop-zone-text">Arrastrá tu <strong>My_Clippings.txt</strong> o el <strong>JSON de Boox</strong></div>
+      <div class="drop-zone-file" id="drop-file-name"></div>
+      <input type="file" id="file-input" accept=".txt,.json" style="display:none">
+    </div>
+
+    <button class="btn-primary" id="btn-test" style="margin-bottom:0.6rem;background:none;color:var(--ink);border:1px solid var(--paper-3)" disabled>Probar conexión API →</button>
+    <div id="test-result" style="font-size:0.75rem;margin-bottom:0.8rem;min-height:1.2em;color:var(--ink-3)"></div>
+    <button class="btn-primary" id="btn-start" disabled>Analizar subrayados →</button>
+    <div class="setup-hint">
+      Tu API key se guarda solo en tu navegador (localStorage). Los subrayados se procesan en batches de 20 — no se guardan en ningún servidor.<br>
+      Conseguí tu key en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── PROCESSING ── -->
+<div id="screen-processing">
+  <div class="proc-card">
+    <div class="proc-title">Analizando subrayados</div>
+    <div class="proc-subtitle" id="proc-subtitle">Preparando batches...</div>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="proc-status" id="proc-status"></div>
+    <div class="proc-found" id="proc-found"></div>
+    <div class="proc-error" id="proc-error"></div>
+    <div class="proc-debug" id="proc-debug"></div>
+    <button class="proc-cancel" id="btn-cancel">Cancelar</button>
+  </div>
+</div>
+
+<!-- ── RESULTS ── -->
+<div id="screen-results">
+  <div class="results-header">
+    <span class="results-logo">Agenda de Personas</span>
+    <span class="results-count" id="results-count"></span>
+    <input type="search" id="search-people" placeholder="Buscar persona, empresa o rol...">
+    <div class="filter-pills" id="filter-pills"></div>
+    <button class="btn-export" id="btn-export">↓ CSV</button>
+    <button class="btn-restart" id="btn-restart">← Nuevo análisis</button>
+  </div>
+  <div class="results-body">
+    <div class="sort-bar">
+      Ordenar por:
+      <button class="sort-btn active" data-sort="mentions">menciones</button>
+      <button class="sort-btn" data-sort="name">nombre</button>
+      <button class="sort-btn" data-sort="company">empresa</button>
+    </div>
+    <div class="people-grid" id="people-grid"></div>
+  </div>
+</div>
+
+<script type="module">
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ── State ──────────────────────────────────────────────────────
+let _file = null;
+let _model = 'claude-haiku-4-5-20251001';
+let _cancelled = false;
+let _allPeople = [];   // [{name, role, company, quotes:[{text,book}]}]
+let _currentSort = 'mentions';
+let _activeFilter = '';
+
+// ── Screens ────────────────────────────────────────────────────
+function show(id) {
+  ['screen-setup','screen-processing','screen-results'].forEach(s => {
+    const el = document.getElementById(s);
+    el.style.display = s === id ? (id === 'screen-results' ? 'block' : 'flex') : 'none';
+  });
+}
+show('screen-setup');
+
+// ── API key ────────────────────────────────────────────────────
+const keyInput = document.getElementById('api-key-input');
+const saved = localStorage.getItem('anthropic_key');
+if (saved) keyInput.value = saved;
+keyInput.addEventListener('input', updateStartBtn);
+
+document.getElementById('btn-test').addEventListener('click', async () => {
+  const key = keyInput.value.trim();
+  const resultEl = document.getElementById('test-result');
+  resultEl.style.color = 'var(--ink-3)';
+  resultEl.textContent = 'Conectando…';
+  try {
+    const { people, rawText } = await callClaude([{
+      bookTitle: 'Prueba', bookAuthor: 'Test',
+      text: 'Steve Jobs, cofundador de Apple, presentó el primer iPhone en 2007 ante miles de personas.'
+    }], key);
+    if (people.length > 0) {
+      resultEl.style.color = '#27ae60';
+      resultEl.textContent = `✓ API OK — encontró: ${people.map(p => p.name).join(', ')}`;
+    } else {
+      resultEl.style.color = '#e67e22';
+      resultEl.textContent = '⚠ API conectada, pero devolvió: ' + rawText.slice(0, 120);
+    }
+  } catch(e) {
+    resultEl.style.color = '#c0392b';
+    resultEl.textContent = '✗ Error: ' + e.message;
+  }
+});
+
+// ── Model selection ────────────────────────────────────────────
+document.querySelectorAll('.model-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _model = btn.dataset.model;
+  });
+});
+
+// ── File drop ──────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileNameEl = document.getElementById('drop-file-name');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(f) {
+  _file = f;
+  fileNameEl.textContent = f.name + ' (' + (f.size / 1024).toFixed(0) + ' KB)';
+  updateStartBtn();
+}
+
+function updateStartBtn() {
+  const hasKey = keyInput.value.trim().startsWith('sk-');
+  document.getElementById('btn-start').disabled = !(_file && hasKey);
+  document.getElementById('btn-test').disabled = !hasKey;
+}
+
+// ── Start ──────────────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', async () => {
+  const key = keyInput.value.trim();
+  localStorage.setItem('anthropic_key', key);
+  const text = await _file.text();
+  const clips = _file.name.endsWith('.json') ? parseBooxJSON(text) : parseKindleClippings(text);
+  if (!clips.length) { alert('No se encontraron subrayados en el archivo.'); return; }
+  show('screen-processing');
+  _cancelled = false;
+  await runExtraction(clips, key);
+});
+
+document.getElementById('btn-cancel').addEventListener('click', () => { _cancelled = true; });
+document.getElementById('btn-restart').addEventListener('click', () => { _allPeople = []; show('screen-setup'); });
+
+// ── Parsers ────────────────────────────────────────────────────
+function parseKindleClippings(text) {
+  const clips = [];
+  const blocks = text.split('==========');
+  for (const block of blocks) {
+    const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+    const headerLine = lines[0];
+    const m = headerLine.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    const bookTitle  = m ? m[1].trim() : headerLine;
+    const bookAuthor = m ? m[2].replace(/([^,]+),\s*(.+)/, '$2 $1').trim() : '';
+    const text = lines.slice(2).join(' ').trim();
+    if (text && text.length > 15) clips.push({ bookTitle, bookAuthor, text });
+  }
+  return clips;
+}
+
+function parseBooxJSON(raw) {
+  try {
+    const data = JSON.parse(raw);
+    const arr = Array.isArray(data) ? data : (data.clippings || data.highlights || []);
+    return arr.map(c => ({
+      bookTitle:  c.bookTitle  || c.title || c.book || '',
+      bookAuthor: c.bookAuthor || c.author || '',
+      text: c.text || c.content || c.highlight || ''
+    })).filter(c => c.text && c.text.length > 15);
+  } catch { return []; }
+}
+
+// ── Extraction pipeline ────────────────────────────────────────
+const BATCH_SIZE = 20;
+
+async function runExtraction(clips, apiKey) {
+  const batches = [];
+  for (let i = 0; i < clips.length; i += BATCH_SIZE) batches.push(clips.slice(i, i + BATCH_SIZE));
+
+  document.getElementById('proc-subtitle').textContent =
+    `${clips.length} subrayados · ${batches.length} batches · modelo ${_model}`;
+
+  const bar   = document.getElementById('progress-bar');
+  const stat  = document.getElementById('proc-status');
+  const fnd   = document.getElementById('proc-found');
+  const errEl = document.getElementById('proc-error');
+  const dbg   = document.getElementById('proc-debug');
+  const rawResults = [];
+  let errors = 0;
+
+  for (let i = 0; i < batches.length; i++) {
+    if (_cancelled) break;
+    bar.style.width = Math.round((i / batches.length) * 100) + '%';
+    stat.textContent = `Batch ${i + 1} / ${batches.length}`;
+
+    try {
+      const { people, rawText } = await callClaude(batches[i], apiKey);
+      rawResults.push(...people);
+      fnd.textContent = `${rawResults.length} personas encontradas`;
+      // Mostrar preview del último response en debug
+      dbg.style.display = 'block';
+      dbg.textContent = 'Último response: ' + rawText.slice(0, 200);
+    } catch (e) {
+      errors++;
+      errEl.textContent = `Error en batch ${i+1}: ${e.message}`;
+      if (e.message.includes('429')) {
+        stat.textContent = 'Rate limit — esperando 20s…';
+        await sleep(20000);
+        i--; continue;
+      }
+      // Continuar con el siguiente batch (no parar todo por un error)
+    }
+
+    if (i < batches.length - 1) await sleep(900);
+  }
+
+  bar.style.width = '100%';
+  if (errors > 0 && rawResults.length === 0) {
+    errEl.textContent = `⚠ Todos los batches fallaron. Revisá tu API key y abrí la consola (F12) para más detalles.`;
+    return;
+  }
+
+  stat.textContent = `Listo — ${rawResults.length} extracciones, ${errors} errores`;
+  _allPeople = mergePeople(rawResults);
+  await sleep(800);
+  renderResults();
+  show('screen-results');
+}
+
+// ── Claude API call ────────────────────────────────────────────
+async function callClaude(clips, apiKey) {
+  const highlightsText = clips.map((c, i) =>
+    `[${i+1}] Libro: "${c.bookTitle}"${c.bookAuthor ? ' · Autor: ' + c.bookAuthor : ''}\n"${c.text}"`
+  ).join('\n\n---\n\n');
+
+  const prompt = `Analizá estos subrayados de libros. Tu tarea: extraer personas reales e identificables que aparezcan mencionadas con su cargo, rol o descripción de quiénes son.
+
+CRITERIO DE INCLUSIÓN — incluí una persona si:
+- Tiene nombre propio (puede ser solo apellido si es conocido, ej: "Musk", "Einstein")
+- El texto dice qué hace, hizo, o quién es (cargo, empresa, logro, relación)
+
+EJEMPLOS que SÍ incluir:
+- "Kevin Thau como director de desarrollo del negocio móvil de Twitter" → name: Kevin Thau, role: director de desarrollo del negocio móvil, company: Twitter
+- "Elon Musk compró Twitter por 44.000 millones" → name: Elon Musk, role: comprador / dueño, company: Twitter
+- "según Kahneman, el sistema 1 opera…" → name: Daniel Kahneman, role: psicólogo / autor, company: ""
+
+EJEMPLOS que NO incluir:
+- "el CEO anunció" (sin nombre)
+- "un investigador descubrió" (sin nombre)
+- personajes ficticios de novelas
+
+Devolvé SOLO el array JSON, sin texto antes ni después. Si no hay nadie, devolvé [].
+
+[{"name":"…","role":"…","company":"…","quote":"fragmento exacto máx 100 chars","book":"título"}]
+
+SUBRAYADOS A ANALIZAR:
+${highlightsText}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: _model,
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${res.statusText} — ${errBody.slice(0, 120)}`);
+  }
+
+  const data = await res.json();
+  const rawText = data.content?.[0]?.text || '';
+
+  // Extraer JSON: buscar primer [ hasta último ]
+  const start = rawText.indexOf('[');
+  const end   = rawText.lastIndexOf(']');
+  if (start === -1 || end === -1 || end < start) return { people: [], rawText };
+
+  try {
+    const people = JSON.parse(rawText.slice(start, end + 1));
+    return { people: Array.isArray(people) ? people : [], rawText };
+  } catch(e) {
+    console.warn('JSON parse error:', e.message, '\nText:', rawText.slice(0, 300));
+    return { people: [], rawText };
+  }
+}
+
+// ── Merge & dedup ──────────────────────────────────────────────
+function normName(n) {
+  return n.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\b(mr|ms|mrs|dr|prof|sir|lord)\b\.?/g, '')
+    .replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function mergePeople(raw) {
+  const map = new Map(); // normName → person object
+
+  for (const r of raw) {
+    if (!r.name || !r.role) continue;
+    const key = normName(r.name);
+    if (!key || key.split(' ').length < 1) continue;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        name: r.name,
+        roles: new Set([r.role]),
+        companies: new Set(r.company ? [r.company] : []),
+        quotes: []
+      });
+    }
+    const p = map.get(key);
+    // Preferir el nombre más largo (más completo)
+    if (r.name.length > p.name.length) p.name = r.name;
+    p.roles.add(r.role);
+    if (r.company) p.companies.add(r.company);
+    if (r.quote) p.quotes.push({ text: r.quote, book: r.book || '' });
+  }
+
+  return Array.from(map.values()).map(p => ({
+    name: p.name,
+    role: [...p.roles][0],           // rol principal (el primero encontrado)
+    allRoles: [...p.roles],
+    company: [...p.companies][0] || '',
+    allCompanies: [...p.companies],
+    quotes: p.quotes
+  }));
+}
+
+// ── Render results ─────────────────────────────────────────────
+function renderResults() {
+  const grid = document.getElementById('people-grid');
+  const countEl = document.getElementById('results-count');
+  const query = document.getElementById('search-people').value.toLowerCase();
+
+  let people = [..._allPeople];
+
+  // Filter by search
+  if (query) {
+    people = people.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.role.toLowerCase().includes(query) ||
+      p.company.toLowerCase().includes(query) ||
+      p.allRoles.some(r => r.toLowerCase().includes(query)) ||
+      p.allCompanies.some(c => c.toLowerCase().includes(query))
+    );
+  }
+
+  // Filter by pill
+  if (_activeFilter) {
+    people = people.filter(p =>
+      p.allCompanies.some(c => c.toLowerCase().includes(_activeFilter.toLowerCase()))
+    );
+  }
+
+  // Sort
+  if (_currentSort === 'mentions') people.sort((a, b) => b.quotes.length - a.quotes.length);
+  else if (_currentSort === 'name') people.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  else if (_currentSort === 'company') people.sort((a, b) => (a.company || 'zzz').localeCompare(b.company || 'zzz', 'es'));
+
+  countEl.textContent = `${_allPeople.length} personas · ${people.length} visibles`;
+
+  if (!people.length) {
+    grid.innerHTML = '<div class="empty-state"><p>Sin resultados para esta búsqueda.</p></div>';
+    return;
+  }
+
+  grid.innerHTML = people.map((p, idx) => {
+    const uniqueBooks = [...new Set(p.quotes.map(q => q.book).filter(Boolean))];
+    const showAll = p.quotes.length <= 2;
+    const visibleQuotes = showAll ? p.quotes : p.quotes.slice(0, 2);
+
+    return `<div class="person-card" id="pcard-${idx}">
+      <div class="person-name">${esc(p.name)}</div>
+      <div class="person-role">${esc(p.role)}</div>
+      ${p.company ? `<div class="person-company">${esc(p.company)}</div>` : ''}
+      <div class="person-mentions">
+        <span class="mention-count">${p.quotes.length} mención${p.quotes.length !== 1 ? 'es' : ''}</span>
+        <span class="mention-books">${esc(uniqueBooks.slice(0,3).join(' · '))}</span>
+      </div>
+      ${p.quotes.length > 0 ? `
+      <div class="person-quotes" id="pquotes-${idx}">
+        ${visibleQuotes.map(q => `
+          <div class="quote-item">
+            <div class="quote-text">"${esc(q.text.slice(0, 180))}${q.text.length > 180 ? '…' : ''}"</div>
+            ${q.book ? `<div class="quote-source">— ${esc(q.book)}</div>` : ''}
+          </div>
+        `).join('')}
+        ${!showAll ? `<button class="toggle-quotes" onclick="expandCard(${idx})">Ver ${p.quotes.length - 2} más…</button>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  renderFilterPills(people);
+}
+
+window.expandCard = function(idx) {
+  const p = [..._allPeople].sort((a, b) => b.quotes.length - a.quotes.length)[idx];
+  if (!p) return;
+  const container = document.getElementById('pquotes-' + idx);
+  if (!container) return;
+  container.innerHTML = p.quotes.map(q => `
+    <div class="quote-item">
+      <div class="quote-text">"${esc(q.text.slice(0, 180))}${q.text.length > 180 ? '…' : ''}"</div>
+      ${q.book ? `<div class="quote-source">— ${esc(q.book)}</div>` : ''}
+    </div>
+  `).join('');
+};
+
+function renderFilterPills(people) {
+  const pills = document.getElementById('filter-pills');
+  // Top companies by person count
+  const compCount = {};
+  _allPeople.forEach(p => p.allCompanies.forEach(c => { if (c) compCount[c] = (compCount[c] || 0) + 1; }));
+  const top = Object.entries(compCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c);
+
+  pills.innerHTML = top.map(c =>
+    `<button class="pill${_activeFilter === c ? ' active' : ''}" onclick="filterByCompany('${esc(c)}')">${esc(c)}</button>`
+  ).join('');
+}
+
+window.filterByCompany = function(company) {
+  _activeFilter = _activeFilter === company ? '' : company;
+  renderResults();
+};
+
+// Sort buttons
+document.querySelectorAll('.sort-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _currentSort = btn.dataset.sort;
+    renderResults();
+  });
+});
+
+// Search
+document.getElementById('search-people').addEventListener('input', renderResults);
+
+// ── Export CSV ─────────────────────────────────────────────────
+document.getElementById('btn-export').addEventListener('click', () => {
+  const rows = [['Nombre','Rol','Empresa','Menciones','Libros','Primer fragmento']];
+  _allPeople.forEach(p => {
+    const books = [...new Set(p.quotes.map(q => q.book).filter(Boolean))].join(' | ');
+    const first = p.quotes[0]?.text?.replace(/"/g, '""') || '';
+    rows.push([p.name, p.role, p.company, p.quotes.length, books, first]);
+  });
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'agenda_personas.csv';
+  a.click();
+});
+
+// ── Utils ──────────────────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

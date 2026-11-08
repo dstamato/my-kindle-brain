@@ -15,7 +15,7 @@ import httpx
 
 from db import (clear_and_insert, get_book_clippings, get_books,
                 get_books_by_category, get_cover_url, get_stats,
-                init_db, load_corpus, save_cover_url)
+                init_db, load_corpus, save_cover_url, set_book_category)
 from parser import filter_clippings, parse_clippings
 
 FRONTEND = Path(__file__).parent.parent / "frontend"
@@ -119,6 +119,14 @@ async def api_library():
         })
 
     return result
+
+
+@app.get("/api/categories")
+async def api_categories():
+    return [
+        {"name": category, "icon": CAT_META[category]["icon"]}
+        for category in CAT_ORDER
+    ]
 
 
 @app.get("/api/books/{book_id}/cover")
@@ -236,6 +244,19 @@ async def api_delete_book(book_id: int):
     return {"ok": True}
 
 
+class CategoryReq(BaseModel):
+    category: str
+
+
+@app.patch("/api/books/{book_id}/category")
+async def api_set_book_category(book_id: int, req: CategoryReq):
+    if req.category not in CAT_ORDER:
+        raise HTTPException(400, "Categoría inválida")
+    if not set_book_category(book_id, req.category):
+        raise HTTPException(404, "Libro no encontrado")
+    return {"ok": True, "category": req.category}
+
+
 @app.get("/api/ignored")
 async def api_ignored():
     from db import get_ignored_books
@@ -320,7 +341,8 @@ async def api_upload(file: UploadFile = File(...)):
                 unique_books[clip["bookRaw"]] = clip
         books_list = list(unique_books.values())
         categories = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: assign_categories(books_list, model)
+            None,
+            lambda: assign_categories(books_list, model, filtered, matrix),
         )
         book_categories = {b["bookRaw"]: cat for b, cat in zip(books_list, categories)}
 

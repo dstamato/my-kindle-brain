@@ -185,6 +185,7 @@
   .lib-detail-info h2 { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lib-detail-meta { font-size: 0.75rem; color: var(--ink-3); margin-top: 2px; }
   .lib-detail-meta span + span::before { content: ' · '; }
+  #detail-category { margin-left: 0.6rem; padding: 0.25rem 0.45rem; border: 1px solid var(--paper-3); border-radius: 3px; background: var(--paper); color: var(--ink-2); font: inherit; }
   .btn-search-book { padding: 0.4rem 0.9rem; background: transparent; border: 1px solid var(--paper-3); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; color: var(--accent); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
   .btn-search-book:hover { background: #e8f0fb; border-color: var(--accent); }
   .btn-cover-retry { padding: 0.35rem 0.6rem; background: transparent; border: 1px solid var(--paper-3); border-radius: 3px; font-size: 0.82rem; cursor: pointer; color: var(--ink-3); transition: all 0.15s; }
@@ -327,6 +328,7 @@
           <div class="lib-detail-meta">
             <span id="detail-view-author"></span>
             <span id="detail-view-count"></span>
+            <select id="detail-category" onchange="changeBookCategory(this.value)" title="Cambiar categoría"></select>
           </div>
         </div>
         <button class="btn-cover-retry" id="btn-cover-retry" onclick="retryCover()" title="Buscar tapa nuevamente" style="display:none">🔄</button>
@@ -591,6 +593,7 @@ document.getElementById('search-input').addEventListener('keydown', e => { if (e
 
 // ── Library ────────────────────────────────────────────────────────────────
 let libraryData = []; // [{category, icon, color, bg, books:[]}]
+let categoryOptions = []; // todas las categorías, incluso las que no tienen libros
 
 function populateBookFilter(books) {
   const sel = document.getElementById('book-filter');
@@ -604,7 +607,12 @@ function populateBookFilter(books) {
 }
 
 async function renderLibrary() {
-  libraryData = await fetch('/api/library').then(r => r.json());
+  const [library, categories] = await Promise.all([
+    fetch('/api/library').then(r => r.json()),
+    categoryOptions.length ? Promise.resolve(categoryOptions) : fetch('/api/categories').then(r => r.json())
+  ]);
+  libraryData = library;
+  categoryOptions = categories;
   renderCategories(libraryData);
 }
 
@@ -713,6 +721,11 @@ async function showBook(bookId) {
   document.getElementById('detail-view-title').textContent  = book.title;
   document.getElementById('detail-view-author').textContent = book.author || 'Autor desconocido';
   document.getElementById('detail-view-count').textContent  = `${book.clip_count} subrayados`;
+  const categorySelect = document.getElementById('detail-category');
+  categorySelect.innerHTML = categoryOptions.map(cat =>
+    `<option value="${esc(cat.name)}">${cat.icon} ${esc(cat.name)}</option>`
+  ).join('');
+  categorySelect.value = book.category;
   document.getElementById('detail-filter').value = '';
   document.getElementById('clips-list').innerHTML = '<div class="lib-loading">Cargando subrayados...</div>';
 
@@ -738,6 +751,21 @@ async function showBook(bookId) {
   bookClips = await fetch(`/api/books/${bookId}/clippings`).then(r => r.json());
   renderClipsList('');
   document.getElementById('detail-filter').focus();
+}
+
+async function changeBookCategory(category) {
+  if (!currentBookId || !category) return;
+  const response = await fetch(`/api/books/${currentBookId}/category`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category })
+  });
+  if (!response.ok) {
+    alert('No se pudo cambiar la categoría');
+    return;
+  }
+  await renderLibrary();
+  allBooks = libraryData.flatMap(cat => cat.books);
 }
 
 function applyDetailCover(url) {

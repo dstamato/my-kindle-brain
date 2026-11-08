@@ -34,6 +34,10 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS ignored_books (
                 raw  TEXT PRIMARY KEY
             );
+            CREATE TABLE IF NOT EXISTS category_overrides (
+                raw      TEXT PRIMARY KEY,
+                category TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_clip_book ON clippings(book_id);
         """)
         # Migrations for existing DBs
@@ -70,6 +74,7 @@ def unignore_book(raw: str) -> None:
 def clear_and_insert(parsed: list[dict], embeddings: np.ndarray,
                      book_categories: dict[str, str]) -> None:
     ignored = get_ignored_books()
+    overrides = get_category_overrides()
     with get_conn() as conn:
         conn.execute("DELETE FROM clippings")
         conn.execute("DELETE FROM books")
@@ -80,7 +85,7 @@ def clear_and_insert(parsed: list[dict], embeddings: np.ndarray,
             if raw in ignored:
                 continue                    # skip permanently deleted books
             if raw not in book_id_map:
-                cat = book_categories.get(raw, "Sin categoría")
+                cat = overrides.get(raw, book_categories.get(raw, "Sin categoría"))
                 cur = conn.execute(
                     "INSERT OR IGNORE INTO books (raw, title, author, category) VALUES (?, ?, ?, ?)",
                     (raw, clip["bookTitle"], clip["bookAuthor"], cat),
@@ -146,6 +151,45 @@ def get_books_by_category() -> list[dict]:
             "GROUP BY b.id ORDER BY b.category, b.title"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_category_overrides() -> dict[str, str]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT raw, category FROM category_overrides").fetchall()
+    return {r["raw"]: r["category"] for r in rows}
+
+
+def set_book_category(book_id: int, category: str) -> bool:
+    """Update a book and persist the choice across future imports."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT raw FROM books WHERE id = ?", (book_id,)).fetchone()
+        if not row:
+            return False
+        raw = row["raw"]
+        conn.execute("UPDATE books SET category = ? WHERE id = ?", (category, book_id))
+        conn.execute(
+            "INSERT INTO category_overrides (raw, category) VALUES (?, ?) "
+            "ON CONFLICT(raw) DO UPDATE SET category = excluded.category",
+            (raw, category),
+        )
+        conn.commit()
+    return True
+
+
+def apply_category_overrides(assignments: dict[str, str]) -> int:
+    """Apply raw-book/category pairs and persist them for future imports."""
+    if not assignments:
+        return 0
+    with get_conn() as conn:
+        for raw, category in assignments.items():
+            conn.execute("UPDATE books SET category = ? WHERE raw = ?", (category, raw))
+            conn.execute(
+                "INSERT INTO category_overrides (raw, category) VALUES (?, ?) "
+                "ON CONFLICT(raw) DO UPDATE SET category = excluded.category",
+                (raw, category),
+            )
+        conn.commit()
+    return len(assignments)
 
 
 def get_book_clippings(book_id: int) -> list[dict]:

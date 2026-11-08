@@ -23,3 +23,16 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+
+# Deploy / Cloudflare
+.wrangler/
+
+# Copias de respaldo locales
+kindle_hibrido.backup*.html
+kindle_hibrido.pre-*.html
+
+# Datos personales de subrayados (texto de libros)
+kindle_recovery_*.js
+
+# Proyecto aparte (Next.js)
+ferrocarril/
