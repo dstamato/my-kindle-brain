@@ -36,3 +36,10 @@ kindle_recovery_*.js
 
 # Proyecto aparte (Next.js)
 ferrocarril/
+
+# Cualquier exportación de subrayados (Kindle, BOOX u otros lectores)
+*.json
+*.txt
+!backend/requirements.txt
+*.db
+*.sqlite
